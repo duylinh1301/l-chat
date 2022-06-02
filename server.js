@@ -2,6 +2,7 @@ const express = require("express");
 const path = require('path');
 const http = require('http');
 const socketio = require('socket.io');
+const formatMessage = require('./utils/messages');
 
 
 const app = express();
@@ -13,22 +14,24 @@ const PORT = 3000 || process.env.PORT;
 // Set static folder
 app.use(express.static(path.join(__dirname, 'public')));
 
+const botName = 'L chat bot';
+
 // Run when client connect
 io.on('connection', socket => {
   // Welcome current current
-  socket.emit('message', 'Welcome to L-chat!'); // emit to current connection
+  socket.emit('message', formatMessage(botName,'Welcome to L-chat!')); // emit to current connection
 
   // Broadcast when a user connect
-  socket.broadcast.emit('message', 'A user has joined the chat'); // emit to very connection expect current connection
+  socket.broadcast.emit('message', formatMessage(botName,'A user has joined the chat')); // emit to very connection expect current connection
 
   // Run when client disconnect
   socket.on('disconnect', () => {
-    io.emit('message', 'A user has left the chat')
+    io.emit('message', formatMessage(botName,'A user has left the chat'));
   });
 
   // Listen for chatMessage
   socket.on('chatMessage', msg => {
-    io.emit('message', msg);
+    io.emit('message', formatMessage('User', msg));
   })
 })
 
