@@ -1,16 +1,43 @@
-const express = require("express");
-const path = require('path');
-const http = require('http');
-const socketio = require('socket.io');
-const formatMessage = require('./utils/messages');
-const { userJoin, getCurrentUser, getRoomUsers, userLeave } = require('./utils/user');
+import express from "express";
+import redis from 'redis';
+import path from 'path';
+import http from 'http';
+import { Server } from 'socket.io';
 
+import formatMessage from './utils/messages.js';
+import { userJoin, getCurrentUser, getRoomUsers, userLeave } from './utils/user.js';
 
+// Initial Express
 const app = express();
 const server = http.createServer(app);
-const io = socketio(server);
 
-const PORT = 3000 || process.env.PORT;
+const io = new Server(server);
+
+const PORT = process.env.PORT || 3000;
+const REDIS_PORT = process.env.PORT || 6379;
+
+const __dirname = path.resolve();
+
+// initalize redis
+const client = redis.createClient({
+  host: '127.0.0.1',
+  port: REDIS_PORT
+});
+await client.connect();
+client.on('error', (err) => console.log('Redis Client Error', err));
+
+const setRedis = (key, value) => {
+
+  if (typeof key !== 'string') {
+    key = JSON.stringify(key);
+  }
+
+  if (typeof value !== 'string') {
+    value = JSON.stringify(value);
+  }
+
+  client.set(key, value);
+}
 
 // Set static folder
 app.use(express.static(path.join(__dirname, 'public')));
@@ -21,6 +48,8 @@ const botName = 'L chat bot';
 io.on('connection', socket => {
   socket.on('joinRoom', ({ username, room }) => {
     const user = userJoin(socket.id, username, room)
+
+    console.log(socket.id, username, room);
 
     socket.join(user.room);
 
@@ -56,6 +85,9 @@ io.on('connection', socket => {
   // Listen for chatMessage
   socket.on('chatMessage', msg => {
     const user = getCurrentUser(socket.id);
+    const room = getRoomUsers(user.room)
+    console.log(room.id);
+    setRedis(room.room, formatMessage(user.name, msg));
     io.to(user.room).emit('message', formatMessage(user.name, msg));
   })
 })
